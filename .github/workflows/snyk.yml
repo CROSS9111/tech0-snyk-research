@@ -1,0 +1,37 @@
+name: Snyk (OS deps)
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  snyk:
+    runs-on: ubuntu-latest
+
+    env:
+      # Snyk CLIが参照するトークン（Secretsに入れたもの）
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      # まずPRやpushで脆弱性を検査
+      # 失敗（脆弱性検出）でジョブを落としたくない場合は "|| true" を付けてください
+      - name: Snyk test (scan open-source deps)
+        run: npx snyk@latest test
+
+      # mainブランチへのpush時のみ、現在の依存状態をSnykに記録（ダッシュボードでトラッキング）
+      - name: Snyk monitor (record on dashboard)
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main')
+        run: npx snyk@latest monitor --project-name="${{ github.repository }}"
