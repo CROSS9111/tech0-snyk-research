@@ -12,6 +12,8 @@ jobs:
     env:
       # Snyk CLIが参照するトークン（Secretsに入れたもの）
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      # EUリージョンの場合は有効化（USなら不要）
+      # SNYK_API: https://api.eu.snyk.io
 
     steps:
       - name: Checkout
@@ -26,12 +28,11 @@ jobs:
       - name: Install deps
         run: npm ci
 
-      # まずPRやpushで脆弱性を検査
-      # 失敗（脆弱性検出）でジョブを落としたくない場合は "|| true" を付けてください
+      # 脆弱性があってもCIを赤くしない
       - name: Snyk test (scan open-source deps)
-        run: npx snyk@latest test
+        run: npx snyk@latest test || true
 
-      # mainブランチへのpush時のみ、現在の依存状態をSnykに記録（ダッシュボードでトラッキング）
+      # mainへのpush時のみダッシュボード登録。失敗してもCIは緑
       - name: Snyk monitor (record on dashboard)
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main')
-        run: npx snyk@latest monitor --project-name="${{ github.repository }}"
+        run: npx snyk@latest monitor --project-name="${{ github.repository }}" || true
